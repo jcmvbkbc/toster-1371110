@@ -70,11 +70,71 @@ static bool match(const char *p1, const char *p2, const uint8_t *a, int n)
 	return true;
 }
 
-static bool try(char *p1, int n1, char *p2, int n2, int l)
+static bool find_match(const char *w, int n)
 {
+	int a = 0, b = N_D;
+
+	while (a + 1 < b) {
+		int c = (a + b) / 2;
+		int cmp = strncmp(w, dic[c], n);
+
+		if (cmp < 0)
+			b = c;
+		else if (cmp > 0)
+			a = c;
+		else if (dic[c][n])
+			b = c;
+		else
+			return true;
+	}
+	return strncmp(w, dic[a], n) == 0 && dic[a][n] == 0;
+}
+
+static void find_matching_range(const char *w, int n, int *first, int *last)
+{
+	int a = 0, b = N_D;
+
+	while (a + 1 < b) {
+		int c = (a + b) / 2;
+		int cmp = strncmp(w, dic[c], n);
+
+		if (cmp < 0)
+			b = c;
+		else if (cmp > 0)
+			a = c;
+		else {
+			for (a = c - 1; a >= 0; --a)
+				if (strncmp(w, dic[a], n))
+					break;
+			*first = a + 1;
+			for (++c; c < b; ++c)
+				if (strncmp(w, dic[c], n))
+					break;
+			*last = c;
+			return;
+		}
+	}
+	if (strncmp(w, dic[a], n)) {
+		*first = 0;
+		*last = 0;
+	} else {
+		*first = a;
+		*last = b;
+	}
+}
+
+static void try(char *p1, int n1, char *p2, int n2, int l)
+{
+	static int oldmin;
 	int i, j, k;
 
-	assert(n1 >= n2);
+	assert(n1 >= n2 && n1 <= l);
+	if (min(n1, n2) > oldmin) {
+		oldmin = min(n1, n2);
+		printf("Candidates:\n"
+		       "[%.*s]\n"
+		       "[%.*s]\n", n1, p1, n2, p2);
+	}
 	if (n1 == n2) {
 		for (i = 0; i < N_D; ++i) {
 			int l1 = strlen(dic[i]);
@@ -85,18 +145,27 @@ static bool try(char *p1, int n1, char *p2, int n2, int l)
 			try(p1, n1 + l1, p2, n2, l);
 		}
 	} else {
-		for (i = 0; i < N_D; ++i) {
+		int first, last;
+
+		for (i = 0; i < n1 - n2; ++i) {
+			int l2 = i + 1;
+
+			p2[n2 + i] = p1[n2 + i] ^ a[n2 + i];
+			if (find_match(p2 + n2, l2))
+				if (n2 + l2 <= n1)
+					try(p1, n1, p2, n2 + l2, l);
+				else
+					try(p2, n2 + l2, p1, n1, l);
+		}
+
+		find_matching_range(p2 + n2, n1 - n2, &first, &last);
+
+		for (i = first; i < last; ++i) {
 			int l2 = strlen(dic[i]);
 
 			if (n2 + l2 > l)
 				continue;
-			if (!match(p1 + n2, dic[i], a + n2, min(n1 - n2, l2)))
-				continue;
-
 			memcpy(p2 + n2, dic[i], l2);
-			printf("Candidates:\n"
-			       "[%.*s]\n"
-			       "[%.*s]\n", n1, p1, n2 + l2, p2);
 			if (n2 + l2 <= n1)
 				try(p1, n1, p2, n2 + l2, l);
 			else
@@ -110,6 +179,28 @@ int main()
 	int i;
 
 	read_dic();
+
+
+	{
+		int i;
+		for (i = 0; i < N_D; ++i)
+			if (!find_match(dic[i], strlen(dic[i])))
+				abort();
+	}
+	{
+		int i, j;
+		for (i = 0; i < N_D; ++i) {
+			int a, b, n = strlen(dic[i]);
+			find_matching_range(dic[i], n, &a, &b);
+			for (j = a; j < b; ++j) {
+				assert(strlen(dic[j]) >= n);
+				assert(strncmp(dic[i], dic[j], n) == 0);
+			}
+			assert(a == 0 || strncmp(dic[i], dic[a - 1], n) != 0);
+			assert(b == N_D || strncmp(dic[i], dic[b], n) != 0);
+		}
+	}
+
 	for (i = 0; i < L; ++i)
 		a[i] = c1[i] ^ c2[i];
 	try(p1, 0, p2, 0, L);
