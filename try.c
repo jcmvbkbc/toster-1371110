@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define N_D 216557
+#define N_D 216558
 char *dic[N_D];
 
 #define L 87
@@ -187,7 +187,7 @@ static void try2(int n, int l)
 static void self_check(void)
 {
 	int i, j;
-	char s[] = "thequickbrownfoxjumpsoverthelazydog";
+	char s[] = "the quick brown fox jumps over a lazy dog";
 
 	for (i = 0; i < N_D; ++i)
 		if (!find_match(dic[i], strlen(dic[i])))
