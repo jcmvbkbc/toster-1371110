@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define N_D 216555
+#define N_D 216557
 char *dic[N_D];
 
 #define L 87
@@ -38,36 +38,36 @@ uint8_t c2[] = {
 	0x28, 0x23, 0x22, 0x45, 0x4f, 0x54, 0x59,
 };
 
+uint8_t c3[] = {
+	0x0a, 0x05, 0x4b, 0x48, 0x63, 0x08, 0x1a, 0x05,
+	0x0d, 0x21, 0x07, 0x14, 0x00, 0x07, 0x4f, 0x5e,
+	0x44, 0x56, 0x16, 0x46, 0x19, 0x10, 0x1b, 0x04,
+	0x04, 0x48, 0x17, 0x14, 0x00, 0x12, 0x06, 0x52,
+	0x07, 0x5f, 0x1d, 0x57, 0x12, 0x02, 0x00, 0x03,
+	0x12, 0x45, 0x11, 0x00, 0x0d, 0x1d, 0x18, 0x10,
+	0x0b, 0x0c, 0x57, 0x57, 0x1f, 0x5c, 0x12, 0x1a,
+	0x53, 0x11, 0x48, 0x09, 0x1f, 0x45, 0x05, 0x31,
+	0x26, 0x3e, 0x08, 0x16, 0x48, 0x02, 0x00, 0x06,
+	0x01, 0x55, 0x17, 0x00, 0x0e, 0x0b, 0x16, 0x16,
+	0x64, 0x23, 0x22, 0x1d, 0x06, 0x1a, 0x1e,
+};
+
 uint8_t a[L];
+uint8_t b[L];
 
 char p1[L];
 char p2[L];
-
-static inline int min(int a, int b)
-{
-	return a < b ? a : b;
-}
+char p3[L];
 
 static void read_dic(void)
 {
 	int i;
 	FILE *dic_file = fopen("dictionary", "r");
 
-	for (i = 0; i < N_D; ++i)
+	dic[0] = " ";
+	for (i = 1; i < N_D; ++i)
 		fscanf(dic_file, "%ms", &dic[i]);
 	fclose(dic_file);
-}
-
-static bool match(const char *p1, const char *p2, const uint8_t *a, int n)
-{
-	int i;
-
-	for (i = 0; i < n; ++i) {
-		uint8_t x = p1[i] ^ p2[i];
-		if (a[i] != x)
-			return false;
-	}
-	return true;
 }
 
 static bool find_match(const char *w, int n)
@@ -123,55 +123,88 @@ static void find_matching_range(const char *w, int n, int *first, int *last)
 	}
 }
 
-static void try(char *p1, int n1, char *p2, int n2, int l)
+static bool represent(const char *str, int n)
 {
-	static int oldmin;
-	int i, j, k;
+	int i, a, b;
 
-	assert(n1 >= n2 && n1 <= l);
-	if (min(n1, n2) > oldmin) {
-		oldmin = min(n1, n2);
-		printf("Candidates:\n"
-		       "[%.*s]\n"
-		       "[%.*s]\n", n1, p1, n2, p2);
+	assert(n > 0);
+	find_matching_range(str, n, &a, &b);
+	if (a != b) {
+		return true;
 	}
-	if (n1 == n2) {
-		for (i = 0; i < N_D; ++i) {
-			int l1 = strlen(dic[i]);
-
-			if (n1 + l1 > l)
-				continue;
-			memcpy(p1 + n1, dic[i], l1);
-			try(p1, n1 + l1, p2, n2, l);
+	for (i = 1; i < n; ++i)
+		if (find_match(str, i) && represent(str + i, n - i)) {
+			return true;
 		}
-	} else {
-		int first, last;
+	return false;
+}
 
-		for (i = 0; i < n1 - n2; ++i) {
-			int l2 = i + 1;
+static void xorstr(char *out, const char *p, const uint8_t *c, int n)
+{
+	int i;
+	for (i = 0; i < n; ++i)
+		out[i] = c[i] ^ p[i];
+}
 
-			p2[n2 + i] = p1[n2 + i] ^ a[n2 + i];
-			if (find_match(p2 + n2, l2))
-				if (n2 + l2 <= n1)
-					try(p1, n1, p2, n2 + l2, l);
-				else
-					try(p2, n2 + l2, p1, n1, l);
-		}
+static void print_str(uint8_t *p, int n)
+{
+	int i;
 
-		find_matching_range(p2 + n2, n1 - n2, &first, &last);
+	for (i = 0; i < n; ++i)
+		printf("%02x ", p[i]);
+	printf("\n");
+}
 
-		for (i = first; i < last; ++i) {
-			int l2 = strlen(dic[i]);
+static void try2(int n, int l)
+{
+	int i;
 
-			if (n2 + l2 > l)
-				continue;
-			memcpy(p2 + n2, dic[i], l2);
-			if (n2 + l2 <= n1)
-				try(p1, n1, p2, n2 + l2, l);
-			else
-				try(p2, n2 + l2, p1, n1, l);
-		}
+	if (1) {
+		printf("p1 = %.*s\n"
+		       "p2 = %.*s\n"
+		       "p3 = %.*s\n", n, p1, n, p2, n, p3);
 	}
+	for (i = 0; i < N_D; ++i) {
+		int li = strlen(dic[i]);
+
+		if (n + li > l)
+			continue;
+		memcpy(p1 + n, dic[i], li);
+		if (n + li < l) {
+			p1[n + li] = ' ';
+			++li;
+		}
+		xorstr(p2 + n, p1 + n, a + n, li);
+		if (!represent(p2, n + li))
+			continue;
+		xorstr(p3 + n, p1 + n, b + n, li);
+		if (!represent(p3, n + li))
+			continue;
+		try2(n + li, l);
+	}
+}
+
+static void self_check(void)
+{
+	int i, j;
+	char s[] = "thequickbrownfoxjumpsoverthelazydog";
+
+	for (i = 0; i < N_D; ++i)
+		if (!find_match(dic[i], strlen(dic[i])))
+			abort();
+
+	for (i = 0; i < N_D; ++i) {
+		int a, b, n = strlen(dic[i]);
+		find_matching_range(dic[i], n, &a, &b);
+		for (j = a; j < b; ++j) {
+			assert(strlen(dic[j]) >= n);
+			assert(strncmp(dic[i], dic[j], n) == 0);
+		}
+		assert(a == 0 || strncmp(dic[i], dic[a - 1], n) != 0);
+		assert(b == N_D || strncmp(dic[i], dic[b], n) != 0);
+	}
+
+	assert(represent(s, strlen(s)));
 }
 
 int main()
@@ -179,29 +212,11 @@ int main()
 	int i;
 
 	read_dic();
+	self_check();
 
-
-	{
-		int i;
-		for (i = 0; i < N_D; ++i)
-			if (!find_match(dic[i], strlen(dic[i])))
-				abort();
-	}
-	{
-		int i, j;
-		for (i = 0; i < N_D; ++i) {
-			int a, b, n = strlen(dic[i]);
-			find_matching_range(dic[i], n, &a, &b);
-			for (j = a; j < b; ++j) {
-				assert(strlen(dic[j]) >= n);
-				assert(strncmp(dic[i], dic[j], n) == 0);
-			}
-			assert(a == 0 || strncmp(dic[i], dic[a - 1], n) != 0);
-			assert(b == N_D || strncmp(dic[i], dic[b], n) != 0);
-		}
-	}
-
-	for (i = 0; i < L; ++i)
+	for (i = 0; i < L; ++i) {
 		a[i] = c1[i] ^ c2[i];
-	try(p1, 0, p2, 0, L);
+		b[i] = c1[i] ^ c3[i];
+	}
+	try2(0, L);
 }
